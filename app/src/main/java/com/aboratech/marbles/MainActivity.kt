@@ -95,7 +95,11 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this)
             .setTitle("Update available")
             .setMessage("Version $latestVersion is available. Update now?")
-            .setPositiveButton("Update") { _, _ -> UpdateChecker.downloadAndInstall(this) }
+            .setPositiveButton("Update") { _, _ ->
+                UpdateChecker.downloadAndInstall(this) { status ->
+                    Toast.makeText(this, status, Toast.LENGTH_SHORT).show()
+                }
+            }
             .setNegativeButton("Later", null)
             .show()
     }

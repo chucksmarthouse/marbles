@@ -1,15 +1,12 @@
 package com.aboratech.marbles
 
 import android.app.DownloadManager
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.net.Uri
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
-import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import org.json.JSONObject
 import java.io.File
@@ -54,42 +51,69 @@ object UpdateChecker {
         }.start()
     }
 
-    fun downloadAndInstall(context: Context) {
+    /**
+     * [onStatus] reports progress/failure text for the caller to show (e.g.
+     * a Toast) -- this used to rely on the ACTION_DOWNLOAD_COMPLETE
+     * broadcast, which is a known-unreliable mechanism across Android
+     * versions/OEMs. Polling DownloadManager's own query API instead is
+     * more verbose but doesn't depend on that broadcast ever arriving.
+     */
+    fun downloadAndInstall(context: Context, onStatus: (String) -> Unit = {}) {
         val appContext = context.applicationContext
         val downloadManager = appContext.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val request = DownloadManager.Request(Uri.parse(APK_DOWNLOAD_URL))
             .setTitle("Marbles update")
+            .setMimeType("application/vnd.android.package-archive")
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .setDestinationInExternalFilesDir(appContext, Environment.DIRECTORY_DOWNLOADS, APK_FILENAME)
-        val downloadId = downloadManager.enqueue(request)
-
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(receiverContext: Context, intent: Intent) {
-                if (intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1) != downloadId) return
-                appContext.unregisterReceiver(this)
-
-                val file = File(
-                    appContext.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
-                    APK_FILENAME,
-                )
-                val uri = FileProvider.getUriForFile(
-                    appContext,
-                    "${appContext.packageName}.fileprovider",
-                    file,
-                )
-                val installIntent = Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(uri, "application/vnd.android.package-archive")
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                appContext.startActivity(installIntent)
-            }
+        val downloadId = try {
+            downloadManager.enqueue(request)
+        } catch (e: Exception) {
+            onStatus("Couldn't start download: ${e.message}")
+            return
         }
-        ContextCompat.registerReceiver(
-            appContext,
-            receiver,
-            IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
-            ContextCompat.RECEIVER_NOT_EXPORTED,
-        )
+        onStatus("Downloading update…")
+        pollDownload(appContext, downloadManager, downloadId, onStatus)
+    }
+
+    private fun pollDownload(
+        context: Context,
+        downloadManager: DownloadManager,
+        downloadId: Long,
+        onStatus: (String) -> Unit,
+    ) {
+        val handler = Handler(Looper.getMainLooper())
+        val query = DownloadManager.Query().setFilterById(downloadId)
+
+        lateinit var poll: () -> Unit
+        poll = {
+            downloadManager.query(query)?.use { cursor ->
+                if (!cursor.moveToFirst()) {
+                    onStatus("Update download failed")
+                } else {
+                    when (cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))) {
+                        DownloadManager.STATUS_SUCCESSFUL -> installDownloaded(context, onStatus)
+                        DownloadManager.STATUS_FAILED -> onStatus("Update download failed")
+                        else -> handler.postDelayed({ poll() }, 500)
+                    }
+                }
+            } ?: onStatus("Update download failed")
+        }
+        handler.postDelayed({ poll() }, 500)
+    }
+
+    private fun installDownloaded(context: Context, onStatus: (String) -> Unit) {
+        try {
+            val file = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), APK_FILENAME)
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(installIntent)
+        } catch (e: Exception) {
+            onStatus("Couldn't start install: ${e.message}")
+        }
     }
 }
