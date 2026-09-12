@@ -16,6 +16,12 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 
+sealed class UpdateResult {
+    object UpToDate : UpdateResult()
+    data class Available(val version: String) : UpdateResult()
+    object Error : UpdateResult()
+}
+
 /**
  * Checks GitHub Releases for a newer build than the one installed, and
  * installs it via the system package installer if the user accepts.
@@ -30,9 +36,9 @@ object UpdateChecker {
         "https://github.com/$OWNER_REPO/releases/latest/download/marbles-debug.apk"
     private const val APK_FILENAME = "marbles-update.apk"
 
-    fun checkForUpdate(currentVersion: String, onUpdateAvailable: (String) -> Unit) {
+    fun checkForUpdate(currentVersion: String, onResult: (UpdateResult) -> Unit) {
         Thread {
-            try {
+            val result = try {
                 val connection = URL(LATEST_RELEASE_API).openConnection() as HttpURLConnection
                 connection.connectTimeout = 5000
                 connection.readTimeout = 5000
@@ -40,12 +46,11 @@ object UpdateChecker {
                 val body = connection.inputStream.bufferedReader().use { it.readText() }
                 connection.disconnect()
                 val latestTag = JSONObject(body).getString("tag_name").removePrefix("v")
-                if (latestTag != currentVersion) {
-                    Handler(Looper.getMainLooper()).post { onUpdateAvailable(latestTag) }
-                }
+                if (latestTag != currentVersion) UpdateResult.Available(latestTag) else UpdateResult.UpToDate
             } catch (_: Exception) {
-                // Offline, GitHub unreachable, rate-limited, etc. -- skip silently.
+                UpdateResult.Error
             }
+            Handler(Looper.getMainLooper()).post { onResult(result) }
         }.start()
     }
 
