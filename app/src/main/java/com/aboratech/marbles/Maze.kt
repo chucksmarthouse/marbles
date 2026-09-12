@@ -1,9 +1,11 @@
 package com.aboratech.marbles
 
 /**
- * '#' = wall, '.' = open floor, 'S' = start, 'G' = goal, 'H' = hole
- * (falls back to start on contact). All rows must be the same length.
- * A serpentine single-path layout, guaranteed solvable by construction.
+ * '#' = wall, '.' = open floor, 'S' = start, 'G' = goal. All rows must
+ * be the same length. A serpentine single-path layout, guaranteed
+ * solvable by construction. Holes are defined separately in
+ * [GameView] as grid-vertex coordinates, not as grid characters here,
+ * since they sit on wall corners/edges rather than at cell centers.
  */
 class Maze(private val grid: List<String>) {
     val rows = grid.size
@@ -18,14 +20,10 @@ class Maze(private val grid: List<String>) {
         return grid[row][col] == '#'
     }
 
-    fun forEachWallCell(action: (row: Int, col: Int) -> Unit) = forEachCell('#', action)
-
-    fun forEachHoleCell(action: (row: Int, col: Int) -> Unit) = forEachCell('H', action)
-
-    private fun forEachCell(target: Char, action: (row: Int, col: Int) -> Unit) {
+    fun forEachWallCell(action: (row: Int, col: Int) -> Unit) {
         for (r in 0 until rows) {
             for (c in 0 until cols) {
-                if (grid[r][c] == target) action(r, c)
+                if (grid[r][c] == '#') action(r, c)
             }
         }
     }
@@ -47,15 +45,15 @@ class Maze(private val grid: List<String>) {
                 "#########",
                 "#S......#",
                 "#######.#",
-                "#......H#",
+                "#.......#",
                 "#.#######",
-                "#H......#",
+                "#.......#",
                 "#######.#",
-                "#......H#",
+                "#.......#",
                 "#.#######",
-                "#H.....H#",
+                "#.......#",
                 "#######.#",
-                "#......H#",
+                "#.......#",
                 "#.#######",
                 "#......G#",
                 "#########",

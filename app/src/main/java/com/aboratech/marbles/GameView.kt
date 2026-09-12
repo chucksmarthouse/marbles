@@ -76,11 +76,7 @@ class GameView @JvmOverloads constructor(
         goalRadius = cellSize * 0.35f
         holeRadius = cellSize * 0.35f
 
-        val holes = mutableListOf<Pair<Float, Float>>()
-        maze.forEachHoleCell { r, c ->
-            holes.add((offsetX + (c + 0.5f) * cellSize) to (offsetY + (r + 0.5f) * cellSize))
-        }
-        holeCenters = holes
+        holeCenters = HOLE_GRID_POSITIONS.map { (r, c) -> (offsetX + c * cellSize) to (offsetY + r * cellSize) }
 
         val radius = cellSize * 0.3f
         startX = offsetX + (startCol + 0.5f) * cellSize
@@ -210,5 +206,26 @@ class GameView @JvmOverloads constructor(
         private const val FRICTION_PER_SECOND = 0.5f
         private const val MAX_SPEED = 1800f
         private const val RESTITUTION = 0.3f
+
+        // (row, col) in grid-line units, not cell-center units -- e.g. (3f, 7f)
+        // is the grid vertex at the row2/row3 boundary and col6/col7 boundary,
+        // not the center of cell (3, 7). This lets a hole sit exactly on a
+        // wall corner or wall-floor edge instead of floating in open floor.
+        // The first 6 are the maze's inside corners (each cap wall next to a
+        // serpentine turn has 2 corners; Maze.DEFAULT has 6 turns, giving 12
+        // candidate corners, of which these 6 are the ones adjacent to the
+        // open corridor on each side of the turn). The last 3 sit at
+        // arbitrary points along a straight wall-floor edge between corners.
+        private val HOLE_GRID_POSITIONS = listOf(
+            3f to 7f,
+            5f to 2f,
+            7f to 7f,
+            9f to 2f,
+            10f to 7f,
+            11f to 7f,
+            3f to 3.5f,
+            8f to 5.5f,
+            13f to 5.5f,
+        )
     }
 }
