@@ -12,14 +12,14 @@ val localProperties = Properties().apply {
 
 android {
     namespace = "com.aboratech.marbles"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.aboratech.marbles"
         minSdk = 26
-        targetSdk = 34
-        versionCode = 7
-        versionName = "0.6.0"
+        targetSdk = 36
+        versionCode = 8
+        versionName = "0.6.1"
     }
 
     signingConfigs {
