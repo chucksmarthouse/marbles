@@ -10,7 +10,6 @@ import android.view.View
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.PopupMenu
-import android.widget.Toast
 
 class MainActivity : Activity() {
     private lateinit var gameView: GameView
@@ -41,24 +40,15 @@ class MainActivity : Activity() {
             )
         }
         setContentView(root)
-
-        UpdateChecker.checkForUpdate(BuildConfig.VERSION_NAME) { result ->
-            if (result is UpdateResult.Available) promptUpdate(result.version)
-        }
     }
 
     private fun showMenu(anchor: View) {
         val popup = PopupMenu(this, anchor)
         popup.menu.add(Menu.NONE, MENU_ABOUT, 0, "About")
-        popup.menu.add(Menu.NONE, MENU_UPDATE, 1, "Check for Update")
         popup.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 MENU_ABOUT -> {
                     showAbout()
-                    true
-                }
-                MENU_UPDATE -> {
-                    checkForUpdateManually()
                     true
                 }
                 else -> false
@@ -79,31 +69,6 @@ class MainActivity : Activity() {
             .show()
     }
 
-    private fun checkForUpdateManually() {
-        UpdateChecker.checkForUpdate(BuildConfig.VERSION_NAME) { result ->
-            when (result) {
-                is UpdateResult.Available -> promptUpdate(result.version)
-                UpdateResult.UpToDate ->
-                    Toast.makeText(this, "You're up to date (v${BuildConfig.VERSION_NAME})", Toast.LENGTH_SHORT).show()
-                UpdateResult.Error ->
-                    Toast.makeText(this, "Couldn't check for updates", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    private fun promptUpdate(latestVersion: String) {
-        AlertDialog.Builder(this)
-            .setTitle("Update available")
-            .setMessage("Version $latestVersion is available. Update now?")
-            .setPositiveButton("Update") { _, _ ->
-                UpdateChecker.downloadAndInstall(this) { status ->
-                    Toast.makeText(this, status, Toast.LENGTH_SHORT).show()
-                }
-            }
-            .setNegativeButton("Later", null)
-            .show()
-    }
-
     override fun onResume() {
         super.onResume()
         gameView.resume()
@@ -116,6 +81,5 @@ class MainActivity : Activity() {
 
     companion object {
         private const val MENU_ABOUT = 1
-        private const val MENU_UPDATE = 2
     }
 }
